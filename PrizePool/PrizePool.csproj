@@ -60,6 +60,7 @@
     <Compile Include="PoolUsers.cs" />
     <Compile Include="PrizePool.cs" />
     <Compile Include="PrizePoolConfig.cs" />
+    <Compile Include="PrizePoolData.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

@@ -5,24 +5,23 @@ using Newtonsoft.Json;
 
 namespace PrizePool
 {
-    public class PrizePoolConfig
+    public class PrizePoolData
     {
-        public int defaultAmount = 1000;
-        public int daysrefresh = 1;
-        public static PrizePoolConfig Read(string path)
+        public List<PoolUsers> PrizePoolUsers = new List<PoolUsers>();
+        public static PrizePoolData Read(string path)
         {
             if (!File.Exists(path))
-                return new PrizePoolConfig();
+                return new PrizePoolData();
             using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
                 return Read(fs);
             }
         }
-        public static PrizePoolConfig Read(Stream stream)
+        public static PrizePoolData Read(Stream stream)
         {
             using (var sr = new StreamReader(stream))
             {
-                var cf = JsonConvert.DeserializeObject<PrizePoolConfig>(sr.ReadToEnd());
+                var cf = JsonConvert.DeserializeObject<PrizePoolData>(sr.ReadToEnd());
                 if (ConfigRead != null)
                     ConfigRead(cf);
                 return cf;
@@ -45,6 +44,6 @@ namespace PrizePool
                 sw.Write(str);
             }
         }
-        public static Action<PrizePoolConfig> ConfigRead;
+        public static Action<PrizePoolData> ConfigRead;
     }
 }

@@ -21,8 +21,10 @@ namespace PrizePool
     public class PrizePool : TerrariaPlugin
     {
         private PrizePoolConfig configObj { get; set; }
+        private PrizePoolData dataObj { get; set; }
         private String SavePath = TShock.SavePath;
-        internal static string filepath { get { return Path.Combine(TShock.SavePath, "prizepool.json"); } }
+        internal static string filepathconfig { get { return Path.Combine(TShock.SavePath, "prizepoolconfig.json"); } }
+        internal static string filepathdata { get { return Path.Combine(TShock.SavePath, "prizepoolusers.json"); } }
         private Random r = new Random();
 
         public override string Name
@@ -50,7 +52,7 @@ namespace PrizePool
         {
             if (disposing)
             {
-                writeConfig();
+                writeData();
                 ServerApi.Hooks.GameInitialize.Deregister(this, OnInitialize);
             }
             base.Dispose(disposing);
@@ -63,13 +65,52 @@ namespace PrizePool
         public void OnInitialize(EventArgs args)
         {
             Commands.ChatCommands.Add(new Command("prizepool.default", award, "award"));
+            Commands.ChatCommands.Add(new Command("prizepool.default", remaining, "remaining"));
+            Commands.ChatCommands.Add(new Command("prizepool.admin", reloadaward, "reloadaward"));
             configObj = new PrizePoolConfig();
+            dataObj = new PrizePoolData();
             loadConfig();
+            loadData();
+        }
+
+        private void remaining(CommandArgs args)
+        {
+            foreach (PoolUsers obj in dataObj.PrizePoolUsers)
+            {
+                if (obj.user == args.Player.Name)
+                {
+                    args.Player.SendInfoMessage("Info: You have {0} left in your pool remaining!", obj.pool);
+                    return;
+                }
+            }
+            args.Player.SendErrorMessage("Error: Could not locate you in the file listing, please make sure to award money prior to checking your remaining total!");
+            return;
+        }
+
+        private void reloadaward(CommandArgs args)
+        {
+            try
+            {
+                if (args.Parameters.Count == 0)
+                {
+                    writeData();
+                }
+                else
+                {
+                    loadData();
+                }
+                loadConfig();
+                args.Player.SendInfoMessage("Info: PrizePool Config Reloaded!");
+            }
+            catch (Exception e)
+            {
+                Log.ConsoleError(e.ToString());
+            }
         }
 
         private void award(CommandArgs args)
         {
-            if (args.Parameters.Count() != 2 && args.Parameters.Count() != 1)
+            if (args.Parameters.Count() != 2)
             {
                 args.Player.SendInfoMessage("Info: /award <user> <amount>");
                 return;
@@ -106,7 +147,7 @@ namespace PrizePool
                 args.Player.SendErrorMessage("Error: Amount awarded must be greater then 0!");
                 return;
             }
-            foreach (PoolUsers obj in configObj.PrizePoolUsers)
+            foreach (PoolUsers obj in dataObj.PrizePoolUsers)
             {
                 if (obj.user == args.Player.Name)
                 {
@@ -115,8 +156,8 @@ namespace PrizePool
                 }
             }
             //else not found - add user then do action
-            configObj.PrizePoolUsers.Add(new PoolUsers(args.Player.Name, configObj.defaultAmount, DateTime.Now));
-            transfer(configObj.PrizePoolUsers.Last(), awardAmount, awardedUser, args.Player);
+            dataObj.PrizePoolUsers.Add(new PoolUsers(args.Player.Name, configObj.defaultAmount, DateTime.Now));
+            transfer(dataObj.PrizePoolUsers.Last(), awardAmount, awardedUser, args.Player);
             return;
         }
 
@@ -125,7 +166,14 @@ namespace PrizePool
             //if found check if it has been longer then a day
             if ((DateTime.Now - obj.time).TotalDays >= configObj.daysrefresh)
             {
-                obj.pool = configObj.defaultAmount;
+                if (!obj.usepoolmax)
+                {
+                    obj.pool = configObj.defaultAmount;
+                }
+                else
+                {
+                    obj.pool = obj.poolmax;
+                }
                 obj.time = DateTime.Now;
             }
             //check if player has enough to award other player
@@ -138,7 +186,7 @@ namespace PrizePool
             obj.pool -= awardAmount;
             var eaccount = SEconomyPlugin.GetEconomyPlayerSafe(awardedUser.Index);
             SEconomyPlugin.WorldAccount.TransferToAsync(eaccount.BankAccount, awardAmount, Wolfje.Plugins.SEconomy.Journal.BankAccountTransferOptions.AnnounceToReceiver, string.Format("Award, done by {0}", player.Name), string.Format("Awarded by {0}", player.Name));
-            TSPlayer.All.SendInfoMessage("Player {0} has been Awarded {1} by {2}!", awardedUser, ((Money)awardAmount).ToLongString(), obj.user);
+            TSPlayer.All.SendInfoMessage("Player {0} has been Awarded {1} by {2}!", awardedUser.Name, ((Money)awardAmount).ToLongString(), obj.user);
             return;
         }
 
@@ -146,15 +194,15 @@ namespace PrizePool
         {
             try
             {
-                if (File.Exists(filepath))
+                if (File.Exists(filepathconfig))
                 {
                     configObj = new PrizePoolConfig();
-                    configObj = PrizePoolConfig.Read(filepath);
+                    configObj = PrizePoolConfig.Read(filepathconfig);
                     return;
                 }
                 else
                 {
-                    configObj.Write(filepath);
+                    configObj.Write(filepathconfig);
                     return;
                 }
             }
@@ -164,12 +212,34 @@ namespace PrizePool
                 return;
             }
         }
-        private void writeConfig()
+        private void writeData()
         {
             try
             {
-                configObj.Write(filepath);
+                dataObj.Write(filepathdata);
                 return;
+            }
+            catch (Exception ex)
+            {
+                Log.ConsoleError(ex.Message);
+                return;
+            }
+        }
+        private void loadData()
+        {
+            try
+            {
+                if (File.Exists(filepathdata))
+                {
+                    dataObj = new PrizePoolData();
+                    dataObj = PrizePoolData.Read(filepathdata);
+                    return;
+                }
+                else
+                {
+                    dataObj.Write(filepathdata);
+                    return;
+                }
             }
             catch (Exception ex)
             {

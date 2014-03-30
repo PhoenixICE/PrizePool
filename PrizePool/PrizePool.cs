@@ -17,7 +17,7 @@ using Wolfje.Plugins.SEconomy;
 
 namespace PrizePool
 {
-    [ApiVersion(1, 14)]
+    [ApiVersion(1, 15)]
     public class PrizePool : TerrariaPlugin
     {
         private PrizePoolConfig configObj { get; set; }
